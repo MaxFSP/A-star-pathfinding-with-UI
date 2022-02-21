@@ -1,16 +1,24 @@
 import random
-
+from button import button
 import pygame
+from queue import PriorityQueue
 import time
 
 """make a blank 800x600 window with a grid of squares 15x7"""
+pygame.init()
 
-WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+PURPLE = (128, 0, 128)
+ORANGE = (255, 165, 0)
+GREY = (128, 128, 128)
+TURQUOISE = (64, 224, 208)
 WIDTH = 900
 HEIGHT = 420
-GREEN = (0, 255, 0)
 
 BIT_DIRTY = (232, 228, 201)
 MID_DIRTY = (162, 129, 82)
@@ -56,14 +64,26 @@ class Spot:
     def get_pos(self):
         return self.row, self.col
 
+    def is_open(self):
+        return self.color == GREEN
+
+    def is_close(self):
+        return self.color == RED
+
     def is_barrier(self):
         return self.color == BLACK
 
     def is_start(self):
         return self.color == BLUE
 
-    def reset(self):
-        return self.color == WHITE
+    def is_end(self):
+        return self.color == TURQUOISE
+
+    def make_open(self):
+        self.color = GREEN
+
+    def make_close(self):
+        self.color = RED
 
     def make_start(self):
         self.color = BLUE
@@ -72,10 +92,13 @@ class Spot:
     def make_barrier(self):
         self.color = BLACK
 
-    def make_path(self):
-        self.color = GREEN
+    def make_end(self):
+        self.color = TURQUOISE
 
-    def make_reset(self):
+    def make_path(self):
+        self.color = PURPLE
+
+    def reset(self):
         self.color = WHITE
 
     def clean(self):
@@ -102,7 +125,61 @@ class Spot:
         return False
 
 
-def make_grid(rows, col, width, height):
+def h(p1, p2):
+    x1, y1 = p1
+    x2, y2 = p2
+    return abs(x1 - x2) + abs(y1 - y2)
+
+
+def reconstruct_path(came_from, current, draw):
+    while current in came_from:
+        current = came_from[current]
+        current.make_path()
+        draw()
+
+
+def algorithm(draw, grid, start, end):
+    count = 0
+    open_set = PriorityQueue()
+    open_set.put((0, count, start))
+    came_from = {}
+    g_score = {spot: float("inf") for row in grid for spot in row}
+    g_score[start] = 0
+    f_score = {spot: float("inf") for row in grid for spot in row}
+    f_score[start] = h(start.get_pos(), end.get_pos())
+    open_set_hash = {start}
+    while not open_set.empty():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+        current = open_set.get()[2]
+        open_set_hash.remove(current)
+        if current == end:
+            reconstruct_path(came_from, end, draw)
+            end.make_end()
+            start.make_start()
+            return True
+
+        for neighbor in current.neighbors:
+            temp_g_score = g_score[current] + 1
+
+            if temp_g_score < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = temp_g_score
+                f_score[neighbor] = temp_g_score + h(neighbor.get_pos(), end.get_pos())
+                if neighbor not in open_set_hash:
+                    count += 1
+                    open_set.put((f_score[neighbor], count, neighbor))
+                    open_set_hash.add(neighbor)
+                    neighbor.make_open()
+        draw()
+        if current != start:
+            current.make_close()
+
+    return False
+
+
+def make_grid_m(rows, col, width, height):
     grid = []
     gap = width // col
     gap2 = height // rows
@@ -112,6 +189,19 @@ def make_grid(rows, col, width, height):
             value = random.uniform(0, 1)
             spot = Spot(i, j, gap, gap2, col, rows, value)
             spot.make_dirty()
+            grid[i].append(spot)
+    return grid
+
+
+def make_grid(rows, col, width, height):
+    grid = []
+    gap = width // col
+    gap2 = height // rows
+    for i in range(col):
+        grid.append([])
+        for j in range(rows):
+            value = random.uniform(0, 1)
+            spot = Spot(i, j, gap, gap2, col, rows, value)
             grid[i].append(spot)
     return grid
 
@@ -161,55 +251,160 @@ def sol(grid, path):
     return path
 
 
+background = pygame.image.load("background.jpg")
+secuencial_button = button((255, 255, 255), 550, 120, 200, 50, "Secuencial")
+random_button = button((255, 255, 255), 550, 220, 200, 50, "Aleatorio")
+cool_algo = button((255, 255, 255), 550, 320, 200, 50, "Dijkstra")
+
+
+def draw_menu_buttons(win):
+    font = pygame.font.SysFont("franklingothicmedium", 30)
+    text = font.render("INTELIGENCIA ARTIFICIAL", 1, (255, 255, 255))
+    win.blit(text, (487, 50))
+    secuencial_button.draw(win, (255, 255, 255))
+    random_button.draw(win, (255, 255, 255))
+    cool_algo.draw(win, (255, 255, 255))
+    pygame.display.update()
+
+
 def main(win, width, height):
     ROWS = 7
     COLS = 15
-    grid = make_grid(ROWS, COLS, width, height)
-    run = True
-    roomba = None
+    grid = make_grid_m(ROWS, COLS, width, height)
     started = False
+    secuencial = False
+    aleatorio = False
+    roomba = None
+    end = None
+    djikstra = False
+
+    start = None
     path = []
 
     cont = -1
-
-    while run:
-        draw(win, grid, COLS, ROWS, width, height)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-
-            if started:
-                continue
-
-            if pygame.mouse.get_pressed()[0]:
+    whole = True
+    menu = True
+    while whole:
+        while menu:
+            win.blit(background, (0, 0))
+            draw_menu_buttons(win)
+            for event in pygame.event.get():
                 pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                if event.type == pygame.QUIT:
+                    secuencial = False
+                    menu = False
+                    whole = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if secuencial_button.isOver(pos):
+                        menu = False
+                        secuencial = True
+                    if random_button.isOver(pos):
+                        menu = False
+                        aleatorio = True
 
-                spot = grid[row][col]
+                    if cool_algo.isOver(pos):
+                        menu = False
+                        djikstra = True
+                        aleatorio = False
+                        grid = make_grid(ROWS, COLS, width, height)
 
-                if not roomba:
-                    roomba = spot
-                    spot.make_start()
+            pygame.display.update()
+        while secuencial:
+            draw(win, grid, COLS, ROWS, width, height)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    secuencial = False
+                    whole = False
 
-                elif not spot.is_start():
+                if started:
+                    continue
+
+                if pygame.mouse.get_pressed()[0]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+
+                    spot = grid[row][col]
+
+                    if not roomba:
+                        roomba = spot
+                        spot.make_start()
+
+                    elif not spot.is_start():
+                        spot.clean()
+                        spot.make_barrier()
+
+
+                elif pygame.mouse.get_pressed()[2]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                    spot = grid[row][col]
+                    spot.reset()
                     spot.clean()
-                    spot.make_barrier()
+                    if spot == roomba:
+                        roomba = None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and roomba and not started:
+                        for row in grid:
+                            for spot in row:
+                                spot.update_neighbors(grid)
+
+                    if event.key == pygame.K_b:
+                        secuencial = False
+                        menu = True
+                        grid = make_grid_m(ROWS, COLS, width, height)
+                        roomba = None
+
+            pygame.display.update()
+        while djikstra:
+            draw(win, grid, COLS, ROWS, width, height)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    djikstra = False
+                    whole = False
+                if pygame.mouse.get_pressed()[0]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                    spot = grid[row][col]
+                    if not start and spot != end:
+                        start = spot
+                        start.make_start()
+                    elif not end and spot != start:
+                        end = spot
+                        end.make_end()
+                    elif spot != end and spot != start:
+                        spot.make_barrier()
+
+                elif pygame.mouse.get_pressed()[2]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                    spot = grid[row][col]
+                    spot.reset()
+                    if spot == start:
+                        start = None
+                    elif spot == end:
+                        end = None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and start and end:
+                        for row in grid:
+                            for spot in row:
+                                spot.update_neighbors(grid)
 
 
-            elif pygame.mouse.get_pressed()[2]:
-                pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
-                spot = grid[row][col]
-                spot.make_reset()
-                spot.clean()
-                if spot == roomba:
-                    roomba = None
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and roomba and not started:
-                    for row in grid:
-                        for spot in row:
-                            spot.update_neighbors(grid)
+                        algorithm(lambda: draw(win, grid, COLS, ROWS, width, height), grid, start, end)
+                    if event.key == pygame.K_b:
+                        djikstra = False
+                        secuencial = False
+                        menu = True
+                        grid = make_grid_m(ROWS, COLS, width, height)
+                        roomba = None
+                        start = None
+                        end = None
 
+                    if event.key == pygame.K_c:
+                        start = None
+                        end = None
+                        grid = make_grid(ROWS, COLS, width, height)
+        pygame.display.update()
 
     pygame.quit()
 
