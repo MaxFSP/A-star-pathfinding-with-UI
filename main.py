@@ -298,9 +298,13 @@ def main(win, width, height):
                     if secuencial_button.isOver(pos):
                         menu = False
                         secuencial = True
+                        grid = make_grid_m(ROWS, COLS, width, height)
+                        roomba = None
                     if random_button.isOver(pos):
                         menu = False
                         aleatorio = True
+                        grid = make_grid_m(ROWS, COLS, width, height)
+                        roomba = None
 
                     if cool_algo.isOver(pos):
                         menu = False
@@ -309,6 +313,7 @@ def main(win, width, height):
                         grid = make_grid(ROWS, COLS, width, height)
 
             pygame.display.update()
+
         while secuencial:
             draw(win, grid, COLS, ROWS, width, height)
             for event in pygame.event.get():
@@ -351,8 +356,54 @@ def main(win, width, height):
                     if event.key == pygame.K_b:
                         secuencial = False
                         menu = True
-                        grid = make_grid_m(ROWS, COLS, width, height)
+
+
+            pygame.display.update()
+
+        while aleatorio:
+            draw(win, grid, COLS, ROWS, width, height)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    secuencial = False
+                    whole = False
+
+                if started:
+                    continue
+
+                if pygame.mouse.get_pressed()[0]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+
+                    spot = grid[row][col]
+
+                    if not roomba:
+                        roomba = spot
+                        spot.make_start()
+
+                    elif not spot.is_start():
+                        spot.clean()
+                        spot.make_barrier()
+
+
+                elif pygame.mouse.get_pressed()[2]:
+                    pos = pygame.mouse.get_pos()
+                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                    spot = grid[row][col]
+                    spot.reset()
+                    spot.clean()
+                    if spot == roomba:
                         roomba = None
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and roomba and not started:
+                        for row in grid:
+                            for spot in row:
+                                spot.update_neighbors(grid)
+
+                    if event.key == pygame.K_b:
+                        secuencial = False
+                        aleatorio = False
+                        menu = True
+
 
             pygame.display.update()
         while djikstra:
@@ -404,6 +455,7 @@ def main(win, width, height):
                         start = None
                         end = None
                         grid = make_grid(ROWS, COLS, width, height)
+                pygame.display.update()
         pygame.display.update()
 
     pygame.quit()
