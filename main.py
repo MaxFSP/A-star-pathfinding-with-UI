@@ -216,6 +216,8 @@ def draw_grid(win, rows, col, height, width):
 
 
 def draw(win, grid, rows, col, width, height):
+    clock = pygame.time.Clock()
+    clock.tick(15)
     win.fill(WHITE)
     for row in grid:
         for spot in row:
@@ -237,18 +239,6 @@ def get_clicked_pos(pos, rows, col, width, height):
 # [right, left, down, up]
 # for (1,1) -> [(2,1), (0,1), (1,2), (1,0)]
 # [0, 1, 2, 3]
-def sol(grid, path):
-    for row in grid:
-        for spot in row:
-            if spot.is_start():
-                temp = []
-                for neighbor in spot.neighbors:
-                    temp.append(neighbor.dirtiness)
-                    max_dirt = max(temp)
-                    for values in spot.neighbors:
-                        if values.dirtiness == max_dirt:
-                            path.append(values)
-    return path
 
 
 background = pygame.image.load("background.jpg")
@@ -277,6 +267,7 @@ def main(win, width, height):
     roomba = None
     end = None
     djikstra = False
+    clock = pygame.time.Clock()
 
     start = None
     path = []
@@ -321,43 +312,44 @@ def main(win, width, height):
                     secuencial = False
                     whole = False
 
-                if started:
-                    continue
-
-                if pygame.mouse.get_pressed()[0]:
+                if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
                     row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
+                    roomba = grid[row][col]
+                    if not started:
+                        roomba = grid[0][0]
+                        roomba.make_start()
+                        roomba.clean()
+                    else:
+                        continue
 
-                    spot = grid[row][col]
-
-                    if not roomba:
-                        roomba = spot
-                        spot.make_start()
-
-                    elif not spot.is_start():
-                        spot.clean()
-                        spot.make_barrier()
-
-
-                elif pygame.mouse.get_pressed()[2]:
-                    pos = pygame.mouse.get_pos()
-                    row, col = get_clicked_pos(pos, ROWS, COLS, width, height)
-                    spot = grid[row][col]
-                    spot.reset()
-                    spot.clean()
-                    if spot == roomba:
-                        roomba = None
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE and roomba and not started:
-                        for row in grid:
-                            for spot in row:
-                                spot.update_neighbors(grid)
 
+                        started = True
+                        for i in range(COLS):
+                            a = i
+
+                            for j in range(ROWS):
+                                b = j + 1
+                                if b == 7:
+                                    b = 6
+
+
+                                else:
+
+                                    draw(win, grid, COLS, ROWS, width, height)
+                                    grid[i][j].reset()
+                                    grid[i][j].clean()
+                                    grid[a][b].make_start()
+                                if b == 6 and a <= 14:
+                                    grid[a][b].reset()
+                                if b == 6 and a == 14:
+                                    grid[a][b].make_start()
                     if event.key == pygame.K_b:
                         secuencial = False
                         menu = True
-
-
+                        started = False
             pygame.display.update()
 
         while aleatorio:
@@ -366,6 +358,7 @@ def main(win, width, height):
                 if event.type == pygame.QUIT:
                     secuencial = False
                     whole = False
+                    aleatorio = False
 
                 if started:
                     continue
@@ -398,12 +391,52 @@ def main(win, width, height):
                         for row in grid:
                             for spot in row:
                                 spot.update_neighbors(grid)
+                        equisde = True
+                        aux_cont = 0
 
+                        while equisde:
+
+                            if roomba.is_start():
+                                temp = []
+                                for neighbor in roomba.neighbors:
+                                    temp.append(neighbor.dirtiness)
+                                max_dirt = max(temp)
+                                if max_dirt == 0:
+                                    aux_cont += 1
+                                if aux_cont >= 4:
+                                    trigger = 1
+
+                                    for row in grid:
+                                        if trigger == 0:
+                                            break
+                                        for spot in row:
+                                            if aux_cont >= 4:
+                                                if spot.dirtiness > 0:
+                                                    print(spot.dirtiness)
+                                                    roomba.clean()
+                                                    roomba.reset()
+                                                    roomba = spot
+                                                    roomba.make_start()
+                                                    draw(win, grid, COLS, ROWS, width, height)
+                                                    aux_cont = 0
+
+                                            else:
+                                                trigger = 0
+                                                break
+
+                                else:
+                                    for values in roomba.neighbors:
+                                        if values.dirtiness == max_dirt:
+                                            roomba.reset()
+                                            roomba.clean()
+                                            roomba = values
+                                            roomba.make_start()
+                                            draw(win, grid, COLS, ROWS, width, height)
+                        draw(win, grid, COLS, ROWS, width, height)
                     if event.key == pygame.K_b:
                         secuencial = False
                         aleatorio = False
                         menu = True
-
 
             pygame.display.update()
         while djikstra:
@@ -440,7 +473,6 @@ def main(win, width, height):
                             for spot in row:
                                 spot.update_neighbors(grid)
 
-
                         algorithm(lambda: draw(win, grid, COLS, ROWS, width, height), grid, start, end)
                     if event.key == pygame.K_b:
                         djikstra = False
@@ -456,6 +488,7 @@ def main(win, width, height):
                         end = None
                         grid = make_grid(ROWS, COLS, width, height)
                 pygame.display.update()
+
         pygame.display.update()
 
     pygame.quit()
