@@ -132,10 +132,13 @@ def h(p1, p2):
 
 
 def reconstruct_path(came_from, current, draw):
+    costo = 0
     while current in came_from:
         current = came_from[current]
         current.make_path()
+        costo += 1
         draw()
+    print("El costo total del camino es: ", costo)
 
 
 def algorithm(draw, grid, start, end):
@@ -395,7 +398,22 @@ def main(win, width, height):
                         aux_cont = 0
 
                         while equisde:
+                            for event in pygame.event.get():
+                                if event.type == pygame.QUIT:
+                                    secuencial = False
+                                    whole = False
+                                    equisde = False
+                                    aleatorio = False
+                                if event.type == pygame.KEYDOWN:
 
+                                    if event.key == pygame.K_b:
+                                        secuencial = False
+                                        aleatorio = False
+                                        menu = True
+                                        equisde = False
+
+                                if started:
+                                    continue
                             if roomba.is_start():
                                 temp = []
                                 for neighbor in roomba.neighbors:
@@ -405,14 +423,12 @@ def main(win, width, height):
                                     aux_cont += 1
                                 if aux_cont >= 4:
                                     trigger = 1
-
                                     for row in grid:
                                         if trigger == 0:
                                             break
                                         for spot in row:
                                             if aux_cont >= 4:
                                                 if spot.dirtiness > 0:
-                                                    print(spot.dirtiness)
                                                     roomba.clean()
                                                     roomba.reset()
                                                     roomba = spot
@@ -433,10 +449,7 @@ def main(win, width, height):
                                             roomba.make_start()
                                             draw(win, grid, COLS, ROWS, width, height)
                         draw(win, grid, COLS, ROWS, width, height)
-                    if event.key == pygame.K_b:
-                        secuencial = False
-                        aleatorio = False
-                        menu = True
+
 
             pygame.display.update()
         while djikstra:
@@ -474,6 +487,7 @@ def main(win, width, height):
                                 spot.update_neighbors(grid)
 
                         algorithm(lambda: draw(win, grid, COLS, ROWS, width, height), grid, start, end)
+
                     if event.key == pygame.K_b:
                         djikstra = False
                         secuencial = False
@@ -492,7 +506,6 @@ def main(win, width, height):
         pygame.display.update()
 
     pygame.quit()
-
 
 if __name__ == '__main__':
     main(WIN, WIDTH, HEIGHT)
